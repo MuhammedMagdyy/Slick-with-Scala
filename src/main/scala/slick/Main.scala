@@ -26,6 +26,12 @@ object Main {
   val anaWadGamed = Actor(2L, "Ana Wad Gamed")
   val anaT3ban5ales = Actor(3L, "Ana T3ban 5ales")
 
+  val providers = List(
+    StreamingProviderMapping(0L, 1L, StreamingService.First),
+    StreamingProviderMapping(1L, 2L, StreamingService.Second),
+    StreamingProviderMapping(2L, 3L, StreamingService.Third),
+  )
+
   def insertMovie(): Unit = {
     val queryDescription = SlickTables.movieTable += anotherLife
     val futureId: Future[Int] = Connection.db.run(queryDescription)
@@ -45,6 +51,16 @@ object Main {
     futureId.onComplete {
       case Success(actorId) => println(s"Ok, inserted with id $actorId")
       case Failure(ex) => println(s"Reason: $ex")
+    }
+  }
+
+  def addStreamingProviders() = {
+    val insertQuery = SlickTables.streamingProviderMappingTable ++= providers
+    val futureId = Connection.db.run(insertQuery)
+
+    futureId.onComplete {
+      case Success(streamProviders) => streamProviders.foreach(println)
+      case Failure(ex) => println(s"Reason $ex")
     }
   }
 
@@ -119,6 +135,13 @@ object Main {
     Connection.db.run(joinQuery.result)
   }
 
+  def findProvidersForMovie(movieId: Long): Future[Seq[StreamingProviderMapping]] = {
+    val query = SlickTables.streamingProviderMappingTable
+      .filter(_.movieId === movieId)
+
+    Connection.db.run(query.result)
+  }
+
   def main(args: Array[String]): Unit = {
     //    insertMovie()
     //    getMoviesByPlainQuery().onComplete {
@@ -127,9 +150,14 @@ object Main {
     //    }
     //    insertActor()
     //    multipleQuerySingleTransaction()
-    findAllActorsByMovie(2).onComplete {
-      case Success(actors) => actors.foreach(println)
-      case Failure(ex) => println(s"Reason $ex")
+    //    findAllActorsByMovie(2).onComplete {
+    //      case Success(actors) => actors.foreach(println)
+    //      case Failure(ex) => println(s"Reason $ex")
+    //    }
+    //    addStreamingProviders()
+    findProvidersForMovie(2).onComplete {
+      case Success(movies) => movies.foreach(println)
+      case Failure(exception) => println(s"Cause $exception")
     }
 
     Thread.sleep(5000)
