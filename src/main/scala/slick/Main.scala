@@ -1,9 +1,11 @@
 package slick
 
+import slick.jdbc.GetResult
+
 import java.time.LocalDate
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Success, Failure, Try}
+import scala.util.{Failure, Success}
 
 object PrivateExecutionContext {
   val executor = Executors.newFixedThreadPool(4)
@@ -18,6 +20,11 @@ object Main {
 
   val myLife = Movie(1L, "My Life", LocalDate.of(2001, 3, 1), 100)
   val anotherLife = Movie(2L, "Another Life", LocalDate.of(2002, 3, 1), 160)
+  val anotherLifeQube = Movie(3L, "Another Life Qube", LocalDate.of(2003, 3, 1), 150)
+
+  val mohamedMagdy = Actor(1L, "Mohamed Magdy")
+  val anaWadGamed = Actor(2L, "Ana Wad Gamed")
+  val anaT3ban5ales = Actor(3L, "Ana T3ban 5ales")
 
   def insertMovie(): Unit = {
     val queryDescription = SlickTables.movieTable += anotherLife
@@ -29,6 +36,16 @@ object Main {
     }
 
     Thread.sleep(10000)
+  }
+
+  def insertActor(): Unit = {
+    val queryDescription = SlickTables.actorTable ++= Seq(mohamedMagdy, anaWadGamed) // adds multiple actors
+    val futureId = Connection.db.run(queryDescription)
+
+    futureId.onComplete {
+      case Success(actorId) => println(s"Ok, inserted with id $actorId")
+      case Failure(ex) => println(s"Reason: $ex")
+    }
   }
 
   def getAllMovies(): Unit = {
@@ -72,7 +89,50 @@ object Main {
     Thread.sleep(10000)
   }
 
+  def getMoviesByPlainQuery(): Future[Vector[Movie]] = {
+    implicit val getResultMovie: GetResult[Movie] =
+      GetResult(position => Movie(
+        position.<<,
+        position.<<,
+        LocalDate.parse(position.nextString()),
+        position.<<
+      ))
+    val query = sql"""SELECT * FROM movies."Movie"""".as[Movie]
+    Connection.db.run(query)
+  }
+
+  def multipleQuerySingleTransaction() = {
+    val movieQuery = SlickTables.movieTable += anotherLifeQube
+    val actorQuery = SlickTables.actorTable += anaT3ban5ales
+    val insertIntoDB = DBIO.seq(movieQuery, actorQuery)
+
+    Connection.db.run(insertIntoDB.transactionally) // transactionally means if one fails then roll back
+  }
+
+  def findAllActorsByMovie(movieId: Long): Future[Seq[Actor]] = {
+    val joinQuery = SlickTables.movieActorMappingTable
+      .filter(_.movieId === movieId)
+      .join(SlickTables.actorTable)
+      .on(_.actorId === _.id)
+      .map(_._2)
+
+    Connection.db.run(joinQuery.result)
+  }
+
   def main(args: Array[String]): Unit = {
-    deleteMovie()
+    //    insertMovie()
+    //    getMoviesByPlainQuery().onComplete {
+    //      case Success(movies) => movies.foreach(println)
+    //      case Failure(ex) => println(s"Reason: $ex")
+    //    }
+    //    insertActor()
+    //    multipleQuerySingleTransaction()
+    findAllActorsByMovie(2).onComplete {
+      case Success(actors) => actors.foreach(println)
+      case Failure(ex) => println(s"Reason $ex")
+    }
+
+    Thread.sleep(5000)
+    PrivateExecutionContext.executor.shutdown()
   }
 }
