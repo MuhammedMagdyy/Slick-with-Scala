@@ -1,5 +1,6 @@
 package slick
 
+import play.api.libs.json.Json
 import slick.jdbc.GetResult
 
 import java.time.LocalDate
@@ -10,7 +11,6 @@ import scala.util.{Failure, Success}
 object PrivateExecutionContext {
   val executor = Executors.newFixedThreadPool(4)
   implicit val ex: ExecutionContext = ExecutionContext.fromExecutorService(executor)
-
 }
 
 object Main {
@@ -31,6 +31,20 @@ object Main {
     StreamingProviderMapping(1L, 2L, StreamingService.Second),
     StreamingProviderMapping(2L, 3L, StreamingService.Third),
   )
+
+  val myLifeLocations = MovieLocations(1L, 1L, List("Egypt", "Masr", "Om Eldonya"))
+
+  val myLifeProperties = MovieProperties(1L, 1L, Map("ana" -> "z3lan awe"))
+
+  val mohamedMagdyDetails = ActorDetails(1L, 1L, Json.parse(
+    """
+      |{
+      |   "born": "2001",
+      |   "sa7eb_sa7bo?": "Yes"
+      |}
+      |"""
+      .stripMargin
+  ))
 
   def insertMovie(): Unit = {
     val queryDescription = SlickTables.movieTable += anotherLife
@@ -62,6 +76,21 @@ object Main {
       case Success(streamProviders) => streamProviders.foreach(println)
       case Failure(ex) => println(s"Reason $ex")
     }
+  }
+
+  def insertMovieLocation() = {
+    val insertQuery = SpecialTables.movieLocationsTable += myLifeLocations
+    Connection.db.run(insertQuery)
+  }
+
+  def insertMovieProperties() = {
+    val insertQuery = SpecialTables.moviePropertiesTable += myLifeProperties
+    Connection.db.run(insertQuery)
+  }
+
+  def insertActorDetails() = {
+    val insertQuery = SpecialTables.actorDetailsTable += mohamedMagdyDetails
+    Connection.db.run(insertQuery)
   }
 
   def getAllMovies(): Unit = {
@@ -155,10 +184,13 @@ object Main {
     //      case Failure(ex) => println(s"Reason $ex")
     //    }
     //    addStreamingProviders()
-    findProvidersForMovie(2).onComplete {
-      case Success(movies) => movies.foreach(println)
-      case Failure(exception) => println(s"Cause $exception")
-    }
+    //    findProvidersForMovie(2).onComplete {
+    //      case Success(movies) => movies.foreach(println)
+    //      case Failure(exception) => println(s"Cause $exception")
+    //    }
+    //    insertMovieLocation()
+    //    insertMovieProperties()
+    insertActorDetails()
 
     Thread.sleep(5000)
     PrivateExecutionContext.executor.shutdown()
